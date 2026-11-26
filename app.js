@@ -186,12 +186,15 @@ function meterRow(r){
   const info=roomInfo(r.id),b=bill(r.id),p=bill(r.id,addMonth(S.month,-1));
   if(info.vacant&&!b)return `<div class="mr vac"><div class="mrn"><b>${r.label}</b></div><span class="mvac">ห้องว่าง ไม่ต้องจด</span></div>`;
   const val=(k,pk)=>b?(b[k]??""):(pk&&p?(p[pk]??""):"");
-  const ro=isPast()?"disabled":"";const cell=(pk,ck,lab,kind)=>{const nm=kind==="w"?"น้ำ":"ไฟ";const pv=val(pk,ck);const need=S.showPrev.has(r.id)||pv==="";
-    return `<div class="mc"><span class="mlab ${kind}">${kind==="w"?"💧 น้ำ":"⚡ ไฟ"}${lab?" "+lab:""}</span>
+  const ro=isPast()?"disabled":"";
+  const lastU=(pk,ck)=>p&&p[ck]!=null&&p[pk]!=null?p[ck]-p[pk]:null;
+  const cell=(pk,ck,lab,kind)=>{const nm=kind==="w"?"น้ำ":"ไฟ";const pv=val(pk,ck);const need=S.showPrev.has(r.id)||pv==="";const lu=lastU(pk,ck);
+    return `<div class="mc"><span class="mlab ${kind}">${kind==="w"?"💧 น้ำ":"⚡ ไฟ"}${lab?" "+lab:""}${lu!=null?` <span class="mlast">(เดือนก่อน ${fmt(lu)} หน่วย)</span>`:""}</span>
      <input type="number" inputmode="decimal" class="mprev ${kind}" placeholder="${nm} เลขก่อน" aria-label="${r.label} เลขก่อน" id="in-${r.id}-${pk}" data-keep data-room="${r.id}" value="${esc(pv)}" ${need?"":"hidden"} ${ro}>
      ${need?"":`<button class="pvb" data-act="editPrev" data-v="${r.id}" ${ro}>ก่อน ${fmt(pv)}</button>`}
      <input type="number" inputmode="decimal" enterkeyhint="next" class="mcur ${kind}" placeholder="${nm} เลขหลัง" aria-label="${r.label} เลขหลัง" id="in-${r.id}-${ck}" data-keep data-room="${r.id}" value="${esc(val(ck))}" ${ro}></div>`};
-  return `<div class="mr ${b?"saved":""}" data-room="${r.id}"><div class="mrn"><b>${r.label}</b>${info.aircon?`<i class="air2">แอร์</i>`:""}</div>
+  const pAmt=p?(p.paid!=null?`<span class="mamt">เก็บเดือนก่อน <b>${fmt(p.paid)}</b></span>`:`<span class="mamt mamt-w">เดือนก่อน ${fmt(calc(p).total)} <b>ยังไม่จ่าย</b></span>`):"";
+  return `<div class="mr ${b?"saved":""} ${p?"hasamt":""}" data-room="${r.id}">${pAmt}<div class="mrn"><b>${r.label}</b>${info.aircon?`<i class="air2">แอร์</i>`:""}</div>
    <div class="mcol">${cell("wPrev","wCur",r.sup?"มิเตอร์ 1":"","w")}${r.sup?cell("w2Prev","w2Cur","มิเตอร์ 2","w"):""}</div><div class="mcol">${cell("ePrev","eCur","","e")}</div>
    <div class="msum" id="pv-${r.id}" data-compact="1"></div></div>`;
 }
@@ -474,17 +477,17 @@ async function loadHist(id){try{const s=await S.db.collection("bills").where("ro
 /* ประวัติรายเดือน: 5 คอลัมน์ พอดีจอ ไม่ต้องเลื่อนซ้ายขวา · ตัวเลขหลักตัวใหญ่ รายละเอียดตัวเล็กข้างใต้ */
 function histTable(list){const map={};list.forEach(x=>map[billId(x.month,x.room)]=x);const get=(m,r)=>map[billId(m,r)]||getLive(m,r);const sup=RBY[list[0].room].sup;
   let lastT=null;const rows=list.map(b=>{const c=calc(b,get),an=anomaly(b,get);const aw=an.find(a=>a.k==="น้ำ"),ae=an.find(a=>a.k==="ไฟ");
-    const tk=(b.tenantKey||"")+"|"+(b.tenant||"");let head="";if(tk!==lastT){head=`<tr class="hten"><td colspan="5">ผู้เช่า: <b>${esc(b.tenant)||"ไม่ทราบชื่อ (ผู้เช่าเดิม)"}</b></td></tr>`;lastT=tk}
-    const extra=[`ค่าห้อง ${fmt(b.rent)}`,c.carryDue>0?`ค้างยกมา ${fmt(c.carryDue)}`:c.carryDue<0?`หักจ่ายเกิน ${fmt(-c.carryDue)}`:"",c.carryFee?`ปรับเดือนก่อน ${fmt(c.carryFee)}`:"",...extraItems(b).map(x=>`${esc(x.note)} ${fmt(x.amt)}`)].filter(Boolean);
+    const tk=(b.tenantKey||"")+"|"+(b.tenant||"");let head="";if(tk!==lastT){head=`<tr class="hten"><td colspan="6">ผู้เช่า: <b>${esc(b.tenant)||"ไม่ทราบชื่อ (ผู้เช่าเดิม)"}</b></td></tr>`;lastT=tk}
+    const extra=[c.carryDue>0?`ค้างยกมา ${fmt(c.carryDue)}`:c.carryDue<0?`หักจ่ายเกิน ${fmt(-c.carryDue)}`:"",c.carryFee?`ปรับเดือนก่อน ${fmt(c.carryFee)}`:"",...extraItems(b).map(x=>`${esc(x.note)} ${fmt(x.amt)}`)].filter(Boolean);
     const total=b.paid!=null?b.expected:c.total;
     const pay=b.paid!=null?`<b>${dLabel(b.payDate)}</b>${b.paid!==total?`<small>รับ ${fmt(b.paid)}</small>`:""}${b.expected-b.paid>0?`<span class="tag warn">ค้าง ${fmt(b.expected-b.paid)}</span>`:""}${b.lateFee?`<span class="tag warn">ช้า ปรับ ${fmt(b.lateFee)}</span>`:""}`:`<span class="tag warn">ยังไม่จ่าย</span>`;
-    return head+`<tr class="hm"><td><b>${mLabel(b.month)}</b></td>
+    return head+`<tr class="hm"><td><b>${mLabel(b.month)}</b></td><td class="hrent"><b>${fmt(b.rent)}</b>${b.rent===S.settings.rentAir?`<small>ห้องแอร์</small>`:""}</td>
      <td class="${aw?"hw":""}"><b>${fmt(c.wu)}</b> <span class="hu">หน่วย</span>${aw?" ⚠":""}<small>${fmt(c.wc)} บาท</small><small class="mt2">${fmt(b.wPrev)}→<wbr>${fmt(b.wCur)}${sup?`<br>${fmt(b.w2Prev)}→<wbr>${fmt(b.w2Cur)}`:""}</small></td>
      <td class="${ae?"hw":""}"><b>${fmt(c.eu)}</b> <span class="hu">หน่วย</span>${ae?" ⚠":""}<small>${fmt(c.ec)} บาท</small><small class="mt2">${fmt(b.ePrev)}→<wbr>${fmt(b.eCur)}</small></td>
-     <td><b class="htot">${fmt(total)}</b>${extra.map(x=>`<small>${x}</small>`).join("")}</td><td class="hpay">${pay}</td></tr>
-     ${b.payNote?`<tr class="hnote"><td></td><td colspan="4">📝 ${esc(b.payNote)}</td></tr>`:""}`}).join("");
+     <td><b class="htot">${fmt(total)}</b><small class="rentm">ค่าเช่า ${fmt(b.rent)}</small>${extra.map(x=>`<small>${x}</small>`).join("")}</td><td class="hpay">${pay}</td></tr>
+     ${b.payNote?`<tr class="hnote"><td></td><td colspan="5">📝 ${esc(b.payNote)}</td></tr>`:""}`}).join("");
   return `<p class="lead" style="margin-bottom:8px">⚠ = ใช้ต่างจากเดือนก่อนเกิน ${S.settings.threshold}% · ตัวเลขเล็กใต้หน่วย คือ เลขมิเตอร์ก่อน→หลัง</p>
-  <div class="tbl-wrap"><table class="hx"><thead><tr><th>เดือน</th><th>💧 น้ำ</th><th>⚡ ไฟ</th><th>ยอดรวม</th><th>จ่ายเมื่อ</th></tr></thead><tbody>${rows}</tbody></table></div>`}
+  <div class="tbl-wrap"><table class="hx"><thead><tr><th>เดือน</th><th class="hrent">ค่าเช่า</th><th>💧 น้ำ</th><th>⚡ ไฟ</th><th>ยอดรวม</th><th>จ่ายเมื่อ</th></tr></thead><tbody>${rows}</tbody></table></div>`}
 function histRow(b){const map={};S.hist.list.forEach(x=>map[billId(x.month,x.room)]=x);const get=(m,r)=>map[billId(m,r)]||getLive(m,r);
   const c=calc(b,get),open=S.histOpen===b.month,an=anomaly(b,get),sup=RBY[b.room].sup;
   return `<div><button class="hrow" data-act="histOpen" data-v="${b.month}" aria-expanded="${open}"><span><b>${mLabelFull(b.month)}</b> · ${esc(b.tenant)||"—"}${an.length?` <span class="tag warn">⚠ ผิดปกติ</span>`:""}</span>
