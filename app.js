@@ -297,16 +297,25 @@ function payPanel(r,b,c){
    ${extraItems(b).map(x=>`<tr><td>${esc(x.note)}</td><td>${fmt(x.amt)}</td></tr>`).join("")}
    <tr class="t"><td>ต้องจ่ายทั้งหมด</td><td>${fmt(c.total)} บาท</td></tr></table>
    <div id="pf-lf" class="banner ${lf?"warn":"ok"}">${lfNote(lf)}</div>
-   <div class="grid2"><div class="fld"><label for="pf-date">วันที่จ่าย</label><input type="date" id="pf-date" data-keep value="${t}"></div>
+   <div class="grid2"><div class="fld"><label for="pf-date-d">วันที่จ่าย</label>${thaiDate("pf-date",t,true,+mKey(todayISO()).slice(0,4)-1)}</div>
    <div class="fld"><label for="pf-payer">ชื่อผู้จ่าย</label><input type="text" id="pf-payer" data-keep value="${esc(b.tenant)}"></div>
    <div class="fld"><label for="pf-amt">รับเงินมา (บาท)</label><input type="number" inputmode="decimal" id="pf-amt" data-keep value="${c.total}"></div></div>
    <button class="btn big" data-act="pay" data-v="${r.id}" ${S.canWrite?"":"disabled"}>บันทึกการรับเงิน ${r.label}</button></div>`}
+/* ช่องวันที่แบบไทย: วัน / เดือน / ปี พ.ศ. แยกกัน (กันสับสนกับรูปแบบวันที่ของเบราว์เซอร์ที่เป็นเดือน/วัน/ปี) */
+function thaiDate(id,iso,keep,minY){const[y,m,d]=(iso||"").split("-").map(Number);const cy=+todayISO().slice(0,4);const k=keep?"data-keep":"";
+  const opt=(v,l,sel)=>`<option value="${v}" ${sel?"selected":""}>${l}</option>`;
+  let ys="";for(let yy=cy+1;yy>=(minY||cy-1);yy--)ys+=opt(yy,yy+543,yy===y);
+  return `<div class="tdate"><select id="${id}-d" ${k} aria-label="วันที่">${iso?"":opt("","วัน",true)}${Array.from({length:31},(_,i)=>opt(i+1,i+1,i+1===d)).join("")}</select>
+  <select id="${id}-m" ${k} aria-label="เดือน">${iso?"":opt("","เดือน",true)}${TMF.map((n,i)=>opt(i+1,n,i+1===m)).join("")}</select>
+  <select id="${id}-y" ${k} aria-label="ปี พ.ศ.">${iso?"":opt("","ปี",true)}${ys}</select></div>`}
+function getDate(id){const d=+$(`#${id}-d`)?.value,m=+$(`#${id}-m`)?.value,y=+$(`#${id}-y`)?.value;if(!d||!m||!y)return "";
+  if(d>new Date(y,m,0).getDate())return "";return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`}
 function lfNote(lf){return lf?`จ่ายช้า ค่าปรับ ${fmt(lf)} บาท จะไปรวมในบิลเดือนหน้า`:"จ่ายตรงเวลา ไม่มีค่าปรับ"}
-function payLive(){const id=S.payOpen;const b=bill(id);if(!b||b.paid!=null)return;const d=$("#pf-date")?.value;const lf=lateFee(b.month,d);
+function payLive(){const id=S.payOpen;const b=bill(id);if(!b||b.paid!=null)return;const d=$("#pf-date-d")&&getDate("pf-date");const lf=lateFee(b.month,d);
   const e=$("#pf-lf");if(e){e.textContent=lfNote(lf);e.className="banner "+(lf?"warn":"ok")}}
-async function pay(id){const date=$("#pf-date").value,payer=$("#pf-payer").value.trim(),amt=numv($("#pf-amt").value);
+async function pay(id){const date=getDate("pf-date"),payer=$("#pf-payer").value.trim(),amt=numv($("#pf-amt").value);
   const ok=await payBill(id,date,payer,amt);
-  if(ok)["pf-date","pf-payer","pf-amt"].forEach(k=>{const e=document.getElementById(k);if(e)delete e.dataset.dirty})}
+  if(ok)["pf-date-d","pf-date-m","pf-date-y","pf-payer","pf-amt"].forEach(k=>{const e=document.getElementById(k);if(e)delete e.dataset.dirty})}
 async function payBill(id,date,payer,amt,silent){const b=bill(id);const c=calc(b);
   if(!date){toast("กรุณาใส่วันที่จ่าย");return false}if(amt==null||amt<0){toast("กรุณาใส่จำนวนเงินที่รับมา");return false}
   const lf=lateFee(b.month,date);
@@ -453,7 +462,7 @@ function vRoom(id){const r=RBY[id];if(!r)return vRooms();const i=roomInfo(id);co
     form=`<div class="panel" style="margin-top:12px"><h3 style="margin-bottom:10px">${mi?"ผู้เช่าใหม่ย้ายเข้า":"แก้ไขข้อมูลผู้เช่า"}</h3>
     <div class="grid2"><div class="fld"><label for="rf-name">ชื่อผู้เช่า</label><input type="text" id="rf-name" value="${mi?"":esc(i.tenant)}"></div>
     <div class="fld"><label for="rf-phone">เบอร์โทร</label><input type="text" inputmode="tel" id="rf-phone" value="${mi?"":esc(i.phone)}"></div>
-    <div class="fld"><label for="rf-in">วันที่เข้าอยู่</label><input type="date" id="rf-in" value="${mi?todayISO():esc(i.moveIn)}"></div>
+    <div class="fld"><label for="rf-in-d">วันที่เข้าอยู่</label>${thaiDate("rf-in",mi?todayISO():i.moveIn,false,2540-543)}</div>
     ${mi?"":`<div class="fld"><label for="rf-dep">มัดจำ (บาท)</label><input type="number" inputmode="numeric" id="rf-dep" value="${dep}"></div><div class="fld"><label for="rf-key">ค่ากุญแจ (บาท)</label><input type="number" inputmode="numeric" id="rf-key" value="${keyOf(i)}"></div>`}
     ${mi?`<div class="fld"><label for="rf-air">ห้องแอร์</label><select id="rf-air"><option value="0" ${!i.aircon?"selected":""}>ไม่มีแอร์ (${fmt(st.rentNormal)} บาท)</option><option value="1" ${i.aircon?"selected":""}>ติดแอร์ (${fmt(st.rentAir)} บาท)</option></select></div>`:""}</div>
     <p class="lead" id="rf-note">${mi?`เก็บค่ามัดจำ <b>${fmt(i.aircon?st.depAir:st.depNormal)}</b> + ค่ากุญแจ <b>${fmt(st.keyFee)}</b> บาท`:""}</p>
@@ -502,7 +511,7 @@ function histRow(b){const map={};S.hist.list.forEach(x=>map[billId(x.month,x.roo
    ${an.map(a=>`<tr><td colspan="2"><span class="tag warn">⚠ ${a.k}${a.pct>0?"เพิ่ม":"ลด"} ${Math.abs(a.pct).toFixed(0)}% จากเดือนก่อน (${fmt(a.o)} → ${fmt(a.c)} หน่วย)</span></td></tr>`).join("")}
    </tbody></table></div></div>`:""}</div>`}
 async function saveRoom(id){const i=roomInfo(id),st=S.settings;const mi=S.rmMode==="movein";const air=mi?$("#rf-air").value==="1":i.aircon;
-  const doc={...(S.rooms[id]||{}),tenant:$("#rf-name").value.trim(),phone:$("#rf-phone").value.trim(),moveIn:$("#rf-in").value,aircon:air,vacant:false};
+  const doc={...(S.rooms[id]||{}),tenant:$("#rf-name").value.trim(),phone:$("#rf-phone").value.trim(),moveIn:getDate("rf-in"),aircon:air,vacant:false};
   let msg="บันทึกข้อมูลห้องแล้ว";
   if(mi){doc.tenantKey="k-"+id+"-"+Date.now().toString(36);doc.deposit=air?st.depAir:st.depNormal;doc.keyFee=st.keyFee}
   else{doc.tenantKey=i.tenantKey;const dep=numv($("#rf-dep")?.value)??i.deposit??(i.aircon?st.depAir:st.depNormal);doc.deposit=dep;const kf=numv($("#rf-key")?.value);if(kf!=null)doc.keyFee=kf;
@@ -650,12 +659,12 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-act]");if(
   else if(a==="saveRates")saveRates();else if(a==="saveBank")saveBank();else if(a==="saveSettings")saveSettings();
 });
 document.addEventListener("input",e=>{const t=e.target;if(t.dataset&&"keep" in t.dataset)t.dataset.dirty="1";
-  if(t.dataset?.room)updatePreview(t.dataset.room);if(t.id==="pf-date")payLive();if(t.dataset?.q)qLive(t.dataset.q);
+  if(t.dataset?.room)updatePreview(t.dataset.room);if(t.id?.startsWith("pf-date"))payLive();if(t.dataset?.q)qLive(t.dataset.q);
   if(t.id==="rf-air"&&S.rmMode==="movein"){const air=t.value==="1";$("#rf-note").innerHTML=`เก็บค่ามัดจำ <b>${fmt(air?S.settings.depAir:S.settings.depNormal)}</b> + ค่ากุญแจ <b>${fmt(S.settings.keyFee)}</b> บาท`}});
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="pin-in")document.querySelector('[data-act="pin"]')?.click();
   if(e.key==="Enter"&&e.target.dataset?.q&&e.target.tagName==="INPUT"){e.preventDefault();qsave(e.target.dataset.q);return}
   if(e.key==="Enter"&&e.target.matches?.("input.mcur,input.mprev")){e.preventDefault();const all=[...document.querySelectorAll("input.mcur,input.mprev")].filter(i=>!i.hidden);const k=all.indexOf(e.target);if(all[k+1]){all[k+1].focus();all[k+1].select?.()}else e.target.blur()}});
-document.addEventListener("change",e=>{if(e.target.id==="ph-in"||e.target.id==="ph-cam"){const f=e.target.files;readPhotos(f).finally(()=>{e.target.value=""});return}if(e.target.id==="rf-air")e.target.dispatchEvent(new Event("input",{bubbles:true}));if(e.target.id==="pf-date")payLive()});
+document.addEventListener("change",e=>{if(e.target.id==="ph-in"||e.target.id==="ph-cam"){const f=e.target.files;readPhotos(f).finally(()=>{e.target.value=""});return}if(e.target.id==="rf-air")e.target.dispatchEvent(new Event("input",{bubbles:true}));if(e.target.id?.startsWith("pf-date"))payLive()});
 
 S.view=location.hash.slice(1)||"home";
 boot();

@@ -173,6 +173,7 @@ table.hx tr.hten td{background:var(--accent-soft);color:var(--accent);font-size:
 table.hx tr.hnote td{border-top:0;padding-top:0;font-size:.85rem;color:var(--muted)}
 table.hx tr.hm:has(+ tr.hnote) td{border-bottom:0}
 @media (max-width:520px){table.hx{font-size:.92rem}table.hx td,table.hx th{padding:6px 4px}table.hx th:nth-child(1){width:15%}table.hx .hrent{display:none}table.hx td small.rentm{display:block}table.hx td small{font-size:.74rem}.mlast{display:block;font-size:.76rem}table.hx .hu{font-size:.75rem;color:var(--muted)}table.hx td b{font-size:1.02rem}table.hx .htot{font-size:1.02rem}}
+.tdate{display:grid;grid-template-columns:.8fr 1.6fr 1fr;gap:6px}.tdate select{width:100%;min-height:52px;border:2px solid var(--line);border-radius:10px;background:var(--bg);padding:0 6px;font-size:1.05rem}
 .qgrid{display:grid;grid-template-columns:1fr;gap:6px 18px}
 @media (min-width:980px){.qgrid{grid-template-columns:1fr 1fr}.wrap{max-width:1100px}}
 table.qt{width:100%;border-collapse:collapse;font-size:1rem}
